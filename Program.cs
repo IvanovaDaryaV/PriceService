@@ -13,6 +13,8 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(
 
 builder.Services.AddControllers();
 
+builder.Services.AddSingleton<KafkaProducer>();
+builder.Services.AddHostedService<KafkaConsumer>();
 builder.Services.AddScoped<ProductService>();
 
 builder.Services.AddEndpointsApiExplorer();

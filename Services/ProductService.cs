@@ -8,13 +8,16 @@ namespace PriceService.Services
     {
         private readonly AppDbContext _db;
         private readonly IDatabase _redis;
+        private readonly KafkaProducer _kafkaProducer;
 
         public ProductService(
             AppDbContext db,
-            IConnectionMultiplexer redis)
+            IConnectionMultiplexer redis,
+            KafkaProducer kafkaProducer)
         {
             _db = db;
             _redis = redis.GetDatabase();
+            _kafkaProducer = kafkaProducer;
         }
 
         /// <summary>
@@ -69,14 +72,17 @@ namespace PriceService.Services
         /// <returns>Актуальные данные о товаре.</returns>
         public async Task<Product?> UpdatePriceAsync(int id, decimal price)
         {
+            // Работа с БД
             var product = await _db.Products.FindAsync(id);
 
             if (product == null)
                 return null;
 
+            var oldPrice = product.Price;
             product.Price = price;
             await _db.SaveChangesAsync();
 
+            // Работа с redis
             var key = "product:" + id;
             var cachedValue = await _redis.StringGetAsync(key);
 
@@ -87,6 +93,16 @@ namespace PriceService.Services
                     JsonSerializer.Serialize(product),
                     TimeSpan.FromMinutes(5));
             }
+
+            // Работа с kafka
+            await _kafkaProducer.SendPriceChangedAsync(
+                new PriceChangedEvent
+                {
+                    ProductId = product.Id ?? default,
+                    OldPrice = oldPrice,
+                    NewPrice = product.Price
+                });
+
             return product;
         }
     }
