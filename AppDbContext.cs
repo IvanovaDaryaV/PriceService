@@ -9,4 +9,5 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<PriceHistory> PriceHistories { get; set; }
 }
