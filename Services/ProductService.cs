@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using PriceService.Models;
+﻿using PriceService.Models;
 using StackExchange.Redis;
+using System.Text.Json;
 
 namespace PriceService.Services
 {
@@ -18,13 +18,33 @@ namespace PriceService.Services
         }
 
         /// <summary>
-        /// Получает цену товара по его идентификатору в БД.
+        /// Получает цену товара по его идентификатору.
         /// </summary>
+        /// <remarks>Если товар есть в кэше, возвращается значение.
+        /// Если нет, значение получается из БД и добавляется в кэш.</remarks>
         /// <param name="id">Идентификатор товара.</param>
         /// <returns>Цена товара.</returns>
         public async Task<Product?> GetByIdAsync(int id)
         {
-            return await _db.Products.FindAsync(id);
+            var key = "product:" + id;
+            var cashedValue = await _redis.StringGetAsync(key);
+
+            if (cashedValue != RedisValue.Null)
+            {
+                return JsonSerializer.Deserialize<Product>(cashedValue.ToString());
+            }
+
+            var product = await _db.Products.FindAsync(id);
+
+            if (product is null)
+                return null;
+
+            await _redis.StringSetAsync(
+                key, 
+                JsonSerializer.Serialize(product),
+                TimeSpan.FromMinutes(5));
+
+            return product;
         }
 
         /// <summary>
