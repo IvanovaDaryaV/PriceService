@@ -7,7 +7,7 @@
 ## Используемые технологии
 
 * C#
-* .NET 8
+* .NET 10
 * ASP.NET Core Web API
 * Entity Framework Core
 * PostgreSQL
